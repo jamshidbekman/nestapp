@@ -20,7 +20,9 @@ jobs:
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
       - name: Docker Hub ga push qilish
-        run: docker tag my-nest-app ${{ secrets.DOCKER_USERNAME }}/my-nest-app:latest && docker push ${{ secrets.DOCKER_USERNAME }}/my-nest-app:latest
+        run: |
+          docker tag my-nest-app ${{ secrets.DOCKER_USERNAME }}/my-nest-app:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/my-nest-app:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -34,7 +36,17 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            docker stop my-nest-app || true
-            docker rm my-nest-app || true
+            # Docker login
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            
+            # Eski konteynerni to'xtatish va o'chirish (agar mavjud bo'lsa)
+            if [ "$(docker ps -q --filter 'name=my-nest-app')" ]; then
+              docker stop my-nest-app
+              docker rm my-nest-app
+            fi
+
+            # Yangi image-ni yuklab olish
             docker pull ${{ secrets.DOCKER_USERNAME }}/my-nest-app:latest
-            docker run -d --name my-nest-app -p 3000:3000 ${{ secrets.DOCKER_USERNAME }}/my-nest-app:latest
+
+            # Yangi konteynerni ishga tushirish
+            docker run -d --restart always --name my-nest-app -p 3000:3000 ${{ secrets.DOCKER_USERNAME }}/my-nest-app:latest
